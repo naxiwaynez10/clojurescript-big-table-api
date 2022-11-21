@@ -1,0 +1,1 @@
+["^ ","~$home-page",["^ ","~:row",9,"~:col",1,"~:fixed-arities",["~#set",[1]],"~:name","^0","~:ns","~$todo.routes.home","~:top-ns","^7"],"~$home-routes",["^ ","^1",12,"^2",1,"^3",["^4",[0]],"^5","^9","^6","^7","^8","^7","~:arities",["^ ","~i0",["^ ","~:ret","~:vector","~:arglist-str","[]"]]],"~:filename","/Users/userr/projects/Git/bigJSONtable/src/clj/todo/routes/home.clj"]
