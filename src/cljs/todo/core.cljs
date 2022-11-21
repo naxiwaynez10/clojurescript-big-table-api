@@ -73,6 +73,7 @@
 (defn search-input
   "Search inputs"
   [data]
+  ;; Reset the results first 
   (let [{field :field
          placeholder :placeholder
          select? :select} data]
@@ -82,7 +83,7 @@
        (case field
          :conn_type [:<> [:option {:value "wifi"} "WIFI"] [:option {:value "lte"} "LTE"]]
          :proxy_type [:<> [:option {:value "https"} "HTTPS"] [:option {:value "socks5"} "SOCKS5"]])]
-      [:input.form-control {:on-change #(swap! api assoc :search-keywords (-> % .-target .-value) :search-key field)
+      [:input.form-control {:on-change #(swap! api assoc :search-keywords (-> % .-target .-value) :search-key field :i 0)
                             :placeholder placeholder :type "text"}])))
 
 
@@ -156,33 +157,36 @@
                  (tr item))
                (if (str/includes? (str ((:search-key @api) item)) (str (:search-keywords @api))) (tr item)))
             ;;  (if (str/includes? (and (str/includes? (:country_code item) (:coverage @api)) (str/lower-case (str ((:search-key @api) item)))) (str (:search-keywords @api))) (tr item))
-           (tr item)))  (sort-api))]])
+             (if (= false (:us? @api))
+               (tr item)
+               (if (= (str (:country_code item)) "US") (tr item)))))
+         (sort-api))]])
 
 (defn tabs []
-  [:ul.nav.nav-tabs.justify-content-center
+  [:ul.nav.nav-pills.justify-content-center
    {:role "tablist"}
-   [:li
+   [:li.nav-item
     {:role "presentation"
-     :class (if (:us? @api) "nav-item active" "nav-item")}
-    [:a.nav-link
+     :on-click #(swap! api assoc :us? true)}
+    [:a
      {:aria-selected "true"
-      :aria-controls "home"
+      :class (if (:us? @api) "nav-link active" "nav-link")
+      :aria-controls "us"
       :role "tab"
       :href "#"
-      :data-bs-toggle "tab"
-      :on-click #(swap! api assoc :us? true)}
+      :data-bs-toggle "tab"}
      "US"]]
    [:li
     {:role "presentation"
-     :class (if-not (:us? @api) "nav-item active" "nav-item")}
-    [:a.nav-link
-     {:aria-selected "false",
-      :aria-controls "profile",
-      :role "tab",
+     :on-click #(swap! api assoc :us? false)}
+    [:a
+     {:aria-selected "false"
+      :class (if-not (:us? @api) "nav-link active" "nav-link")
+      :aria-controls "ww"
+      :role "tab"
       :href "#"
-      :data-bs-toggle "tab"
-      :on-click #(swap! api assoc :us? false)}
-     "Profile"]]])
+      :data-bs-toggle "tab"}
+     "World Wide"]]])
 
 (defn heading []
   [:div.card-heading.text-center.pt-3 [:h2 "All US premium proxy list"]
