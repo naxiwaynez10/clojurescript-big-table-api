@@ -2,14 +2,31 @@
   (:require [ajax.core :refer [GET]]
             [clojure.string :as str]
             [reagent.core :as r]
-            [reagent.dom :as rdom]))
+            [reagent.dom :as rdom]
+            [clojure.pprint :as pprint]
+            [cljs.pprint :as p]))
 
 
-(defonce api (r/atom {:loading true :sort :id :dir true :index 0 :result 100 :i 0}))
+(defonce api (r/atom {:loading true :sort :id :dir true :index 0 :result 100 :us? true :search-keywords "" :search-key :city}))
+
+
+(defn match 
+  "Search for matches and update the state"
+  [] 
+  (filter (fn [data]
+            (if (:us? @api)
+              (and (= "US" (:country_code data)) (str/includes? (str/lower-case ((:search-key @api) data)) (str (:search-keywords @api))))
+              (and (not= "US" (:country_code data)) (str/includes? (str/lower-case ((:search-key @api) data)) (str (:search-keywords @api)))))) (:proxies (:data @api))))
 
 (defn update-state
+  "Updates the matches to state"
   []
-  (swap! api assoc :current (nth (partition (:result @api)  (:result @api) nil (:proxies (:data @api))) (:index @api))))
+  (let [m? (match)
+        d (:result @api)
+        i (count m?)
+        [n step] (if (> d i) [i i] [d d])]
+    (swap! api assoc :rows i :current (nth (partition n  step nil m?) (:index @api) m?))))
+
 
 (defn get-api
   "Get the Todos from the API https://jsonplaceholder.typicode.com/todos/"
@@ -27,6 +44,7 @@
 (defn sort-api
   "Sort the data in the API by ASCENDING or DESCENDING order"
   []
+  (update-state)
   (if (:dir @api)
     (sort-by (:sort @api) > (:current @api))
     (sort-by (:sort @api) < (:current @api))))
@@ -56,7 +74,8 @@
          ping :ping
          isp :isp
          zip :zip_code
-         connection :conn_type} item]
+         connection :conn_type
+         code :country_code} item]
     [:tr {:key id}
      [:th {:scope "row"} id]
      [:td ip]
@@ -67,6 +86,7 @@
      [:td connection]
      [:td isp]
      [:td ping]
+     [:td code]
      [:td "Action"]]))
 
 
@@ -82,28 +102,32 @@
        {:on-change #(swap! api assoc :search-keywords (-> % .-target .-value) :search-key field)}
        (case field
          :conn_type [:<> [:option {:value "wifi"} "WIFI"] [:option {:value "lte"} "LTE"]]
-         :proxy_type [:<> [:option {:value "https"} "HTTPS"] [:option {:value "socks5"} "SOCKS5"]])]
-      [:input.form-control {:on-change #(swap! api assoc :search-keywords (-> % .-target .-value) :search-key field :i 0)
+         :proxy_type [:<> [:option {:value "https"} "HTTPS"] [:option {:value "socks"} "SOCKS5"]])]
+      [:input.form-control {:on-change #(swap! api assoc :search-keywords (-> % .-target .-value) :search-key field)
                             :placeholder placeholder :type "text"}])))
 
-
 (defn pagination []
-  [:div.row
-   [:div.col-12.mx-3
-    [:nav {:aria-label "Page navigation example"}
-     [:ul {:class "pagination"}
-      [:li (if (= 0 (:index @api))  {:class "page-item  disabled"} {:class "page-item"})
-       [:button {:class "page-link"
-                 :on-click #(swap! api assoc :index (- (:index @api) 1))} "Previous"]]
-      (map (fn [x]
-             [:li {:class (if (= (:index @api) x) (str "page-item active") (str "page-item")) :key x}
-              [:button {:class "page-link"
-                        :key x
-                        :on-click #(swap! api assoc :index x)} (+ 1 x)]]) (range (int (/ (count (:proxies (:data @api))) (:result @api)))))
+  (let [i (:rows @api)
+        result (:result @api)
+        steps (if (= (mod i result) 0)
+                (/ i result)
+                (+ 1 (int (/ i result))))]
+    [:div.row
+     [:div.col-12.mx-3
+      [:nav {:aria-label "Page navigation example"}
+       [:ul {:class "pagination"}
+        [:li (if (= 0 (:index @api))  {:class "page-item  disabled"} {:class "page-item"})
+         [:button {:class "page-link"
+                   :on-click #(swap! api assoc :index (- (:index @api) 1))} "Previous"]]
+        (map (fn [x]
+               [:li {:class (if (= (:index @api) x) (str "page-item active") (str "page-item")) :key x}
+                [:button {:class "page-link"
+                          :key x
+                          :on-click #(swap! api assoc :index x)} (+ 1 x)]]) (range steps))
 
-      [:li (if (= (- (int (/ (count (:proxies (:data @api))) (:result @api))) 1) (:index @api))  {:class "page-item  disabled"} {:class "page-item"})
-       [:button {:class "page-link"
-                 :on-click #(swap! api assoc :index (+ (:index @api) 1))} "Next"]]]]]])
+        [:li (if (= (- steps 1) (:index @api))  {:class "page-item  disabled"} {:class "page-item"})
+         [:button {:class "page-link"
+                   :on-click #(swap! api assoc :index (+ (:index @api) 1))} "Next"]]]]]]))
 
 (defn table-head []
   [:thead
@@ -142,25 +166,16 @@
     [:th {:scope "col"} "Action"]]])
 
 
+
 (defn table []
   [:table {:class ".mt-5 table"}
    [:caption "All US premium proxy list"]
    [table-head]
    [:tbody
     (when (empty? (:current @api))
-      [:tr [:td {:colSpan 8} [:div.loader]]])
-    (map (fn [item]
-           (if-not (empty? (:search-keywords @api))
-            ;;  There is a search keyword
-             (if (:us? @api)
-               (if (and (= (str (:country_code item)) "US") (str/includes? (str/lower-case ((:search-key @api) item)) (str/lower-case (:search-keywords @api))))
-                 (tr item))
-               (if (str/includes? (str ((:search-key @api) item)) (str (:search-keywords @api))) (tr item)))
-            ;;  (if (str/includes? (and (str/includes? (:country_code item) (:coverage @api)) (str/lower-case (str ((:search-key @api) item)))) (str (:search-keywords @api))) (tr item))
-             (if (= false (:us? @api))
-               (tr item)
-               (if (= (str (:country_code item)) "US") (tr item)))))
-         (sort-api))]])
+      (if-not (= (:rows @api) 0) [:tr [:td {:colSpan 8} [:div.loader]]]))
+    
+    (map (fn [item] (tr item)) (sort-api))]])
 
 (defn tabs []
   [:ul.nav.nav-pills.justify-content-center
@@ -206,9 +221,11 @@
         [:option {:value "100"} 100]
         [:option {:value "200"} 200]
         [:option {:value "500"} 500]
-        [:option {:value "1000"} 1000]
-        [:option {:value "5000"} 5000]
-        [:option {:value "10000"} 10000]]]]]]])
+        ;; [:option {:value "1000"} 1000]
+        ;; [:option {:value "5000"} 5000]
+        ;; [:option {:value "10000"} 10000]
+        ]
+       [:span.pt-3 (str (:rows @api)) [:i " total results found"]]]]]]])
 
 (defn main []
   (r/create-class
