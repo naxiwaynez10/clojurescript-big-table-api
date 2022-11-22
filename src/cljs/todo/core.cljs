@@ -7,12 +7,12 @@
             [cljs.pprint :as p]))
 
 
-(defonce api (r/atom {:loading true :sort :id :dir true :index 0 :result 100 :us? true :search-keywords "" :search-key :city}))
+(defonce api (r/atom {:loading? true :sort :id :dir true :index 0 :result 100 :us? true :search-keywords "" :search-key :city}))
 
 
-(defn match 
+(defn match
   "Search for matches and update the state"
-  [] 
+  []
   (filter (fn [data]
             (if (:us? @api)
               (and (= "US" (:country_code data)) (str/includes? (str/lower-case ((:search-key @api) data)) (str (:search-keywords @api))))
@@ -29,9 +29,9 @@
 
 
 (defn get-api
-  "Get the Todos from the API https://jsonplaceholder.typicode.com/todos/"
+  "Get the Todos from the API http://127.0.0.1:5500/malachie_large.json"
   []
-  (GET "http://127.0.0.1:5500/malachie_large.json"
+  (GET "https://proxeidon.com/api_request.php"
     {:handler (fn [res]
                 (swap! api assoc :data res)
                 (update-state))
@@ -60,7 +60,17 @@
   [ref]
   (if (= (:sort @api) ref) (str "active") (str "")))
 
-
+(defn action-button [params]
+  (let [{id :id
+         spam-o :spam-others
+         spam-x :spam-xlb} params]
+    [:button.btn.btn-primary
+   {:data-bs-params
+    (str id "-" spam-x "-" spam-o)
+    :data-bs-target "#proxyM",
+    :data-bs-toggle "modal",
+    :type "button"}
+   "Get"]))
 
 (defn tr
   "Render the <tr> element for each todos"
@@ -70,24 +80,25 @@
          id :proxy_id
          type :proxy_type
          city :city
+         country :country
          state :region
          ping :ping
          isp :isp
          zip :zip_code
          connection :conn_type
-         code :country_code} item]
+         spam-others :spam_others
+         spam-xlb :spam_xbl} item]
     [:tr {:key id}
-     [:th {:scope "row"} id]
      [:td ip]
      [:td type]
+     [:td country]
      [:td city]
      [:td state]
      [:td zip]
      [:td connection]
      [:td isp]
      [:td ping]
-     [:td code]
-     [:td "Action"]]))
+     [:td [action-button {:id id :spam-xlb spam-xlb :spam-others spam-others}]]]))
 
 
 (defn search-input
@@ -129,10 +140,10 @@
          [:button {:class "page-link"
                    :on-click #(swap! api assoc :index (+ (:index @api) 1))} "Next"]]]]]]))
 
+
 (defn table-head []
   [:thead
    [:tr
-    [:th {:scope "col"} "#"]
     [:th {:scope "col"
           :class (active :public_ip)} [:span
                                        {:on-click #(swap! api assoc :sort :public_ip :dir (not (:dir @api)))} "Public IP  " [:i.fa {:class (class)}]]
@@ -141,6 +152,10 @@
           :class (active :proxy_type)} [:span
                                         {:on-click #(swap! api assoc :sort :proxy_type :dir (not (:dir @api)))} "Protocol " [:i.fa {:class (class)}]]
      (search-input {:field :proxy_type :select true})]
+    [:th {:scope "col"
+          :class (active :country)} [:span
+                                     {:on-click #(swap! api assoc :sort :country :dir (not (:dir @api)))} "Country " [:i.fa {:class (class)}]]
+     (search-input {:field :country :placeholder "Country"})]
     [:th {:scope "col"
           :class (active :city)} [:span
                                   {:on-click #(swap! api assoc :sort :city :dir (not (:dir @api)))} "City " [:i.fa {:class (class)}]]
@@ -172,9 +187,9 @@
    [:caption "All US premium proxy list"]
    [table-head]
    [:tbody
-    (when (empty? (:current @api))
-      (if-not (= (:rows @api) 0) [:tr [:td {:colSpan 8} [:div.loader]]]))
-    
+    (when (empty? (:data @api))
+      [:tr [:td {:colSpan 8} [:div.loader]]]) 
+    (if (and (not (empty? (:data @api))) (empty? (:current @api))) [:tr [:td {:colSpan 8 :style {:text-align "center" :padding "8px"}} "No Results where found!"]])
     (map (fn [item] (tr item)) (sort-api))]])
 
 (defn tabs []
@@ -220,11 +235,7 @@
         [:option {:value "50"} 50]
         [:option {:value "100"} 100]
         [:option {:value "200"} 200]
-        [:option {:value "500"} 500]
-        ;; [:option {:value "1000"} 1000]
-        ;; [:option {:value "5000"} 5000]
-        ;; [:option {:value "10000"} 10000]
-        ]
+        [:option {:value "500"} 500]]
        [:span.pt-3 (str (:rows @api)) [:i " total results found"]]]]]]])
 
 (defn main []
