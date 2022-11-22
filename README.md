@@ -7,6 +7,8 @@ FIXME
 ## Prerequisites
 
 You will need [Leiningen][1] 2.0 or above installed.
+Also `shadow-cljs` installed globally
+Run `npm istall -g shadow-cljs`
 
 [1]: https://github.com/technomancy/leiningen
 
@@ -14,6 +16,7 @@ You will need [Leiningen][1] 2.0 or above installed.
 First install all dependencies like `Reagent`
     
        npm install
+       
        
 To start a web server for the application, run:
 
